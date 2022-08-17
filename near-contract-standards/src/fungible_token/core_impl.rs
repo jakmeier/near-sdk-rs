@@ -64,8 +64,8 @@ pub trait FungibleTokenContract {
 /// For example usage, see examples/fungible-token/src/lib.rs.
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
-    /// AccountID -> Account balance.
-    pub accounts: LookupMap<AccountId, Balance>,
+    /// substr(sha256(AccountID), 20) -> Account balance.
+    pub accounts: LookupMapAdapter,
 
     /// Total supply of the all token.
     pub total_supply: Balance,
@@ -74,13 +74,21 @@ pub struct FungibleToken {
     pub account_storage_usage: StorageUsage,
 }
 
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct LookupMapAdapter {
+    inner: LookupMap<Vec<u8>, Balance>,
+}
+
 impl FungibleToken {
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
     {
-        let mut this =
-            Self { accounts: LookupMap::new(prefix), total_supply: 0, account_storage_usage: 0 };
+        let mut this = Self {
+            accounts: LookupMapAdapter::new(prefix),
+            total_supply: 0,
+            account_storage_usage: 0,
+        };
         this.measure_account_storage_usage();
         this
     }
@@ -262,5 +270,35 @@ impl FungibleTokenResolver for FungibleToken {
         amount: U128,
     ) -> U128 {
         self.internal_ft_resolve_transfer(&sender_id, receiver_id, amount).0.into()
+    }
+}
+
+impl LookupMapAdapter {
+    fn new<S: IntoStorageKey>(prefix: S) -> LookupMapAdapter {
+        Self { inner: LookupMap::new(prefix) }
+    }
+
+    fn hash_key(account: &AccountId) -> Vec<u8> {
+        const SIGNIFICANT_HASH_BYTES: usize = 20;
+        let mut hash = env::sha256(&account.as_bytes());
+        hash.resize(SIGNIFICANT_HASH_BYTES, 0);
+        hash
+    }
+
+    pub fn get(&self, key: &AccountId) -> Option<Balance> {
+        self.inner.get(&Self::hash_key(key))
+    }
+
+    pub fn remove(&mut self, key: &AccountId) -> Option<Balance> {
+        self.inner.remove(&Self::hash_key(key))
+    }
+
+    pub fn insert(&mut self, key: &AccountId, value: &Balance) -> Option<Balance> {
+        self.inner.insert(&Self::hash_key(key), value)
+    }
+
+    /// Returns true if the map contains a given key.
+    pub fn contains_key(&self, key: &AccountId) -> bool {
+        self.inner.contains_key(&Self::hash_key(key))
     }
 }
