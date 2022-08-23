@@ -64,7 +64,7 @@ pub trait FungibleTokenContract {
 /// For example usage, see examples/fungible-token/src/lib.rs.
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
-    /// substr(sha256(AccountID), 20) -> Account balance.
+    /// sha256(AccountID) -> Account balance.
     pub accounts: LookupMapAdapter,
 
     /// Total supply of the all token.
@@ -76,7 +76,7 @@ pub struct FungibleToken {
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct LookupMapAdapter {
-    inner: LookupMap<Vec<u8>, Balance>,
+    inner: LookupMap<[u8; 32], Balance>,
 }
 
 impl FungibleToken {
@@ -278,11 +278,8 @@ impl LookupMapAdapter {
         Self { inner: LookupMap::new(prefix) }
     }
 
-    fn hash_key(account: &AccountId) -> Vec<u8> {
-        const SIGNIFICANT_HASH_BYTES: usize = 20;
-        let mut hash = env::sha256(&account.as_bytes());
-        hash.resize(SIGNIFICANT_HASH_BYTES, 0);
-        hash
+    fn hash_key(account: &AccountId) -> [u8; 32] {
+        env::sha256_array(account.as_bytes())
     }
 
     pub fn get(&self, key: &AccountId) -> Option<Balance> {
