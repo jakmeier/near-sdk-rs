@@ -18,7 +18,7 @@ use crate::promise::Allowance;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{CryptoHash, GasWeight, PromiseError};
+use crate::{ContextPermissions, ContractContext, CryptoHash, GasWeight, PromiseError};
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -305,6 +305,14 @@ pub fn epoch_height() -> u64 {
 /// ```
 pub fn storage_usage() -> StorageUsage {
     unsafe { sys::storage_usage() }
+}
+
+pub fn current_context() -> ContractContext {
+    todo!()
+}
+
+pub fn predecessor_context() -> ContractContext {
+    todo!()
 }
 
 // #################
@@ -1487,6 +1495,14 @@ pub fn promise_batch_action_delete_account(
             beneficiary_id.as_ptr() as _,
         )
     }
+}
+
+pub fn promise_batch_action_switch_context(_context: ContractContext) {
+    todo!()
+}
+
+pub fn promise_batch_action_set_context_permissions(_permissions: ContextPermissions) {
+    todo!()
 }
 
 /// If the current function is invoked by a callback we can access the execution results of the

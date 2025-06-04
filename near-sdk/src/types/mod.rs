@@ -17,6 +17,11 @@ mod error;
 pub use self::error::Abort;
 pub use self::error::FunctionError;
 
+mod contract_context;
+pub use self::contract_context::ContextPermissions;
+pub use self::contract_context::ContractContext;
+pub use self::contract_context::GlobalContractCodeIdentifier;
+
 /// Raw type for duration in nanoseconds
 pub type Duration = u64;
 

@@ -7,8 +7,10 @@ use std::io::{Error, Write};
 use std::num::NonZeroU128;
 use std::rc::Rc;
 
-use crate::env::migrate_to_allowance;
-use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+use crate::env::{current_context, migrate_to_allowance};
+use crate::{
+    require, AccountId, ContractContext, Gas, GasWeight, NearToken, PromiseIndex, PublicKey,
+};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -71,6 +73,9 @@ enum PromiseAction {
     DeleteAccount {
         beneficiary_id: AccountId,
     },
+    SwitchContext {
+        target: ContractContext,
+    },
 }
 
 impl PromiseAction {
@@ -128,6 +133,9 @@ impl PromiseAction {
             }
             DeleteAccount { beneficiary_id } => {
                 crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
+            }
+            SwitchContext { target } => {
+                crate::env::promise_batch_action_switch_context(target.clone())
             }
         }
     }
@@ -319,6 +327,48 @@ impl Promise {
         })
     }
 
+    pub fn internal_sharded_function_call(
+        self,
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: NearToken,
+        gas: Gas,
+    ) -> Self {
+        let ctx = current_context();
+        require!(
+            matches!(ctx, ContractContext::Sharded { .. }),
+            "internal sharded call must originate from a sharded context"
+        );
+        self.context(ctx).add_action(PromiseAction::FunctionCall {
+            function_name,
+            arguments,
+            amount,
+            gas,
+        })
+    }
+
+    pub fn internal_sharded_function_call_weight(
+        self,
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: NearToken,
+        gas: Gas,
+        weight: GasWeight,
+    ) -> Self {
+        let ctx = current_context();
+        require!(
+            matches!(ctx, ContractContext::Sharded { .. }),
+            "internal sharded call must originate from a sharded context"
+        );
+        self.context(ctx).add_action(PromiseAction::FunctionCallWeight {
+            function_name,
+            arguments,
+            amount,
+            gas,
+            weight,
+        })
+    }
+
     /// Transfer tokens to the account that this promise acts on.
     /// Uses low-level [`crate::env::promise_batch_action_transfer`]
     pub fn transfer(self, amount: NearToken) -> Self {
@@ -423,6 +473,10 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_action_delete_account`]
     pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
         self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
+    }
+
+    pub fn context(self, ctx: ContractContext) -> Self {
+        self.add_action(PromiseAction::SwitchContext { target: ctx })
     }
 
     /// Merge this promise with another promise, so that we can schedule execution of another

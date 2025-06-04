@@ -19,6 +19,7 @@ pub(crate) fn generate_ext_structs(
                 deposit: ::near_sdk::NearToken::from_near(0),
                 static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),
+                context: ::near_sdk::ContractContext::Root,
             }
         }
     };
@@ -38,6 +39,7 @@ pub(crate) fn generate_ext_structs(
           pub(crate) deposit: ::near_sdk::NearToken,
           pub(crate) static_gas: ::near_sdk::Gas,
           pub(crate) gas_weight: ::near_sdk::GasWeight,
+          pub(crate) context: ::near_sdk::ContractContext,
       }
 
       impl #name {
@@ -51,6 +53,10 @@ pub(crate) fn generate_ext_structs(
           }
           pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
               self.gas_weight = ::near_sdk::GasWeight(gas_weight);
+              self
+          }
+          pub fn with_contract_context(mut self, ctx: ::near_sdk::ContractContext) -> Self {
+              self.context = ctx;
               self
           }
       }
@@ -125,6 +131,7 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
         }
     }
     let Signature { generics, .. } = original_sig;
+    // TODO: use context if Some
     quote! {
         #new_non_bindgen_attrs
         pub fn #ident #generics(self, #pat_type_list) -> ::near_sdk::Promise {
