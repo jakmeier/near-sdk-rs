@@ -464,8 +464,8 @@ impl Promise {
     /// p1.then(p2).and(p3).then(p4);
     /// ```
     /// Uses low-level [`crate::env::promise_batch_then`]
-    pub fn then(self, mut other: Promise) -> Promise {
-        match &mut other.subtype {
+    pub fn then(self, other: Promise) -> Promise {
+        match &other.subtype {
             PromiseSubtype::Single(x) => {
                 let mut after = x.after.borrow_mut();
                 if after.is_some() {
@@ -511,6 +511,31 @@ impl Promise {
     pub fn as_return(self) -> Self {
         *self.should_return.borrow_mut() = true;
         self
+    }
+
+    /// Schedules execution of multiple other promises right after the current
+    /// promise finishes executing.
+    pub fn then_many(self, others: &[&Promise]) {
+        for other in others {
+            let self_clone = Promise {
+                subtype: self.subtype.clone(),
+                // this clone only works because we consume self, so the current
+                // promise can't be modified afterwards
+                should_return: self.should_return.clone(),
+            };
+            match &other.subtype {
+                PromiseSubtype::Single(x) => {
+                    let mut after = x.after.borrow_mut();
+                    if after.is_some() {
+                        crate::env::panic_str(
+                            "Cannot callback promise which is already scheduled after another",
+                        );
+                    }
+                    *after = Some(self_clone)
+                }
+                PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
+            }
+        }
     }
 
     fn construct_recursively(&self) -> PromiseIndex {
