@@ -33,7 +33,7 @@ pub trait ShardedFungibleTokenReceiver {
 }
 
 #[near_sdk::near(serializers=[borsh, json], contract_state)]
+#[serde(transparent)]
 pub struct TransferCallResponseValue {
-    pub used: U128,
     pub unused: U128,
 }

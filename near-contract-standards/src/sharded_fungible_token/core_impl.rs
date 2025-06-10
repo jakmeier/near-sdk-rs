@@ -302,10 +302,10 @@ impl TransferCallResponseValue {
                     // The call was successful, expected to read how much to
                     // transfer and how much to keep on the receiver.
                     // However, we can't trust the value returned by
-                    // sharded_ft_on_transfer, we must verify that it adds up to
-                    // value.
-                    let expected_amount = response.unused.0.checked_add(response.used.0)?;
-                    if amount.0 != expected_amount {
+                    // sharded_ft_on_transfer, we must verify that it is smaller
+                    // than the original amount. (The `amount` can be trusted
+                    // because the callback was set up by this contract.)
+                    if amount.0 >= response.unused.0 {
                         Some(response)
                     } else {
                         None
@@ -328,9 +328,11 @@ impl TransferCallResponseValue {
 
     fn validated_used_amount(amount: U128) -> U128 {
         match Self::read_and_validate(amount) {
-            Some(response) => response.unused,
+            // subtraction will not fail because input was validated
+            Some(response) => amount.0 - response.unused.0,
             // invalid input, refunding the full amount
-            None => 0.into(),
+            None => 0u128,
         }
+        .into()
     }
 }
